@@ -1,5 +1,6 @@
 #include "BOX.h"
 #include <IGL/IGlib.h>
+#include <chrono>
 
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
@@ -18,12 +19,17 @@ bool leftButtonDown = false;
 float lastX = 0.0f;
 float lastY = 0.0f;
 
+//Vector con los IDs de la beretta
+std::vector<int> gBerettaIds;
+
 
 //Idenficadores de los objetos de la escena
 int objId = -1;
 
 //Vector para objetos m�ltiples
 std::vector<int> objIds;
+//Array para los IDs por mesh
+std::vector<int> localObjs;
 
 //Declaraci�n de CB
 void resizeFunc(int width, int height);
@@ -102,6 +108,7 @@ int main(int argc, char** argv)
 	IGlib::setMouseMoveCB(mouseMoveFunc);
 	IGlib::setMousePassiveMoveCB(mousePassMoveFunc);
 	IGlib::setMouseWheelMoveCB(mouseWheelFunc);
+	IGlib::setIdleCB(idleFunc);
 
 
 	//Mainloop
@@ -112,14 +119,16 @@ int main(int argc, char** argv)
 
 void cargarOriginal()
 {
-	size_t start = objIds.size();
+	int start = objIds.size();
 	if (!carga3D("../3D_assets/Beretta_M9.obj")) {
 		std::cout << "Error cargando el modelo 3D" << std::endl;
 	}
 	else {
-		glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f));
-		for (size_t i = start; i < objIds.size(); ++i)
-			IGlib::setModelMat(objIds[i], s);
+		//Escalado extra y mover hacia abajo un poco
+		for (int i = start; i < objIds.size(); i++) {
+			gBerettaIds.push_back(objIds[i]);
+		}
+		
 	}
 
 }
@@ -130,15 +139,34 @@ void resizeFunc(int width, int height)
 	//Ajusta el aspect ratio al tama�o de la venta
 }
 
-/*void idleFunc()
+void idleFunc()
 {
 	static float angle = 0.0f;
-	angle = (angle < 3.141592f * 2.0f) ? angle + 0.01f : 0.0f;
-	glm::mat4 modelMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-	modelMat = glm::rotate(modelMat, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+	static auto lastTime = std::chrono::high_resolution_clock::now();
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
+	lastTime = currentTime;
 
-	IGlib::setModelMat(objId, modelMat);
-}*/
+	float rotationSpeed = glm::radians(45.0f);
+	angle += rotationSpeed * deltaTime;
+
+	if (angle > M_PI * 2.0f)
+		angle -= M_PI * 2.0f;
+
+	//Hover arriba y abajo
+	float timeSeconds = std::chrono::duration<float>(currentTime.time_since_epoch()).count();
+	float verticalOffset = sin(timeSeconds * 2.0f) * 10.0f; 
+
+
+	for (int i = 0; i < gBerettaIds.size(); i++) {
+		glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
+		model = glm::rotate(model, -3.141592f / 2.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+		model = glm::rotate(model, angle, glm::vec3(1.0f, 0.0f, 0.0f));
+		model = glm::scale(model, glm::vec3(0.02f));
+		model = glm::translate(model, glm::vec3(verticalOffset, 0.0f, 0.0f));
+		IGlib::setModelMat(gBerettaIds[i], model);
+	}
+}
 
 void keyboardFunc(unsigned char key, int x, int y)
 {
@@ -178,14 +206,22 @@ void keyboardFunc(unsigned char key, int x, int y)
 		IGlib::setViewMat(view);
 	}
 	if (key == 'l' || key == 'L') {
-		size_t start = objIds.size();
-		if (!carga3D("../3D_assets/Mustang 13.04.2021 Compressed.obj")) {
+		int start = objIds.size();
+		if (!carga3D("../3D_assets/uploads_files_2815401_Ferarri+Testarossa.obj")) {
 			std::cout << "Error cargando el modelo 3D" << std::endl;
 		}
 		else {
-			glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f));
-			for (size_t i = start; i < objIds.size(); ++i)
-				IGlib::setModelMat(objIds[i], s);
+			//Direccion para movimiento atrás
+			glm::vec3 forward = glm::normalize(camaraCentro - camaraPos);
+			//Escalado para hacerlo mas grande y posicionamiento 
+			for (int i = start; i < objIds.size(); i++) {
+				glm::mat4 model = glm::translate(glm::mat4(1.0f), forward * 3.0f);
+				model = glm::rotate(model, -3.141592f / 12.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+				model = glm::scale(model, glm::vec3(2.0f));
+				IGlib::setModelMat(objIds[i], model);
+			}
+
+			std::cout << "Cargado modelo 3D de Ferrari Testarossa" << std::endl;
 		}
 	}
 
@@ -285,6 +321,8 @@ bool carga3D(const std::string& pFile) {
 	}
 	std::cout << "Se han cargado " << sc->mNumMeshes << " meshes" << std::endl;
 
+
+	
 	for (unsigned int m = 0; m < sc->mNumMeshes; ++m) {
 		const aiMesh* mesh = sc->mMeshes[m];
 
@@ -340,18 +378,19 @@ bool carga3D(const std::string& pFile) {
 			vertexArray, 0, normalArray, textCoordsArray, 0);
 
 		objIds.push_back(id);
+		localObjs.push_back(id);
 		objId = id;
 
 		// Escalado por mesh
-		//glm::mat4 modelMat = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 0.2f, 0.2f));
-		//IGlib::setModelMat(id, modelMat);
+		glm::mat4 modelMat = glm::scale(glm::mat4(1.0f), glm::vec3(0.2f, 0.2f, 0.2f));
+		IGlib::setModelMat(id, modelMat);
 
 		free(faceArray);
 		free(vertexArray);
 		free(normalArray);
 		free(textCoordsArray);
 	}
-	size_t start = objIds.size();
+	int start = objIds.size();
 
 	return true;
 }

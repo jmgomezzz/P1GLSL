@@ -139,28 +139,34 @@ void resizeFunc(int width, int height)
 	//Ajusta el aspect ratio al tama�o de la venta
 }
 
+//modificada para que gire sobre el propio eje Y y haga un pequeño hover hacia arriba y abajo
 void idleFunc()
 {
+	//usamos la libreria chrono para hacer un efecto más suave, ya que trabaja a nivel de la hora del reloj
 	static float angle = 0.0f;
-	static auto lastTime = std::chrono::high_resolution_clock::now();
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
-	lastTime = currentTime;
+	static auto lastTime = std::chrono::high_resolution_clock::now(); //guarda el último tiempo de giro
+	auto currentTime = std::chrono::high_resolution_clock::now(); //guarda el tiempo actual
+	float deltaTime = std::chrono::duration<float>(currentTime - lastTime).count(); //calcula el aumento de tiempo
+	lastTime = currentTime; //iguala el tiempo actual y anterior para repetir el bucle
 
+	//definimos la velocidad de giro en radianes
 	float rotationSpeed = glm::radians(45.0f);
+	//el ángulo de rotación es la velocidad de rotación en rad/s por el incremento de tiempo en s
 	angle += rotationSpeed * deltaTime;
 
+	//cuando una vuelta completa resetea el ángulo
 	if (angle > M_PI * 2.0f)
 		angle -= M_PI * 2.0f;
 
 	//Hover arriba y abajo
-	float timeSeconds = std::chrono::duration<float>(currentTime.time_since_epoch()).count();
-	float verticalOffset = sin(timeSeconds * 2.0f) * 10.0f; 
+	float timeSeconds = std::chrono::duration<float>(currentTime.time_since_epoch()).count(); //calcula el tiempo
+	float verticalOffset = sin(timeSeconds * 2.0f) * 10.0f; //se multiplica el tiempo por el sena de la frecuencia en hz y por un multiplicador para que sea un hover más o menos alto
 
 
+	//se implementa al modelo de la beretta
 	for (int i = 0; i < gBerettaIds.size(); i++) {
 		glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
-		model = glm::rotate(model, -3.141592f / 2.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+		model = glm::rotate(model, -3.141592f / 2.0f, glm::vec3(0.0f, 0.0f, 1.0f)); //los ejes de giro están cambiados ya que el modelo ha sido girado para que esté apoyado sobre el mango
 		model = glm::rotate(model, angle, glm::vec3(1.0f, 0.0f, 0.0f));
 		model = glm::scale(model, glm::vec3(0.02f));
 		model = glm::translate(model, glm::vec3(verticalOffset, 0.0f, 0.0f));
@@ -168,17 +174,24 @@ void idleFunc()
 	}
 }
 
+//funcionalidades obligatorias del teclado
 void keyboardFunc(unsigned char key, int x, int y)
 {
+	//cuando se pulsa w la cámara se acerca, todos los métodos de movimiento de cámara funcionan igual
 	std::cout << "Se ha pulsado la tecla " << key << std::endl << std::endl;
 	if (key == 'w' || key == 'W') {
+		//definimos una velocidad de la cámara
 		float speed = 0.1f;
+		//creamos un vector unitario entre el centro de la cámara y su posición
 		glm::vec3 forward = glm::normalize(camaraCentro - camaraPos);
+		//cambiamos el centro de la cámara y su posición con el vector y su velocidad
 		camaraPos += forward * speed;
 		camaraCentro += forward * speed;
+		//cambiamos la matriz de vista
 		glm::mat4 view = glm::lookAt(camaraPos, camaraCentro, camaraUp);
 		IGlib::setViewMat(view);
 	}
+	//con s se aleja
 	if (key == 's' || key == 'S') {
 		float speed = 0.1f;
 		glm::vec3 forward = glm::normalize(camaraCentro - camaraPos);
@@ -187,6 +200,7 @@ void keyboardFunc(unsigned char key, int x, int y)
 		glm::mat4 view = glm::lookAt(camaraPos, camaraCentro, camaraUp);
 		IGlib::setViewMat(view);
 	}
+	//con a se mueve a la izquierda
 	if (key == 'a' || key == 'A') {
 		float speed = 0.1f;
 		glm::vec3 forward = glm::normalize(camaraCentro - camaraPos);
@@ -196,6 +210,7 @@ void keyboardFunc(unsigned char key, int x, int y)
 		glm::mat4 view = glm::lookAt(camaraPos, camaraCentro, camaraUp);
 		IGlib::setViewMat(view);
 	}
+	//con d hacia la derecha
 	if (key == 'd' || key == 'D') {
 		float speed = 0.1f;
 		glm::vec3 forward = glm::normalize(camaraCentro - camaraPos);
@@ -205,6 +220,7 @@ void keyboardFunc(unsigned char key, int x, int y)
 		glm::mat4 view = glm::lookAt(camaraPos, camaraCentro, camaraUp);
 		IGlib::setViewMat(view);
 	}
+	//con la tecla l cargamos otro modelo del Ferrari
 	if (key == 'l' || key == 'L') {
 		int start = objIds.size();
 		if (!carga3D("../3D_assets/uploads_files_2815401_Ferarri+Testarossa.obj")) {
@@ -227,16 +243,20 @@ void keyboardFunc(unsigned char key, int x, int y)
 
 }
 
+//funcionalides del ratón
 void mouseFunc(int button, int state, int x, int y)
 {
+	//cuando se pulsa el botón derecho
 	if (button == 2) {
 		if (state == 0) {
+			//activamos su respectivo bool y guardamos la última powsición donde fue clickeado
 			std::cout << "Se ha pulsado el bot�n ";
 			leftButtonDown = true;
 			lastX = x;
 			lastY = y;
 		}
 		else {
+			//cuando se suelta desactivamos el bool
 			leftButtonDown = false;
 			std::cout << "Se ha soltado el bot�n ";
 		}
@@ -251,13 +271,16 @@ void mouseFunc(int button, int state, int x, int y)
 	std::cout << "en la posici�n " << x << " " << y << std::endl << std::endl;
 }
 
-
+//método respecto al movimiento del ratón
 void mouseMoveFunc(int x, int y)
 {
+	//cuando se presiona el click derecho
 	if (leftButtonDown) {
+		//calculamos el desplazamiento del ratón por una sensibilidad
 		const float sensitivity = 0.005f;
 		float xoffset = (lastX - x) * sensitivity;
-		float yoffset = (lastY - y) * sensitivity; 
+		float yoffset = (lastY - y) * sensitivity;
+		//movemos la cámara para que siga al ratón
 		glm::vec3 direction = camaraCentro - camaraPos;
 		float radius = glm::length(direction);
 		float theta = atan2(direction.z, direction.x);
@@ -273,10 +296,12 @@ void mouseMoveFunc(int x, int y)
 		direction.y = radius * cos(phi);
 		direction.z = radius * sin(phi) * sin(theta);
 		camaraCentro = camaraPos + direction;
+		//modificamos la matriz de vista
 		glm::mat4 view = glm::lookAt(camaraPos, camaraCentro, camaraUp);
 		IGlib::setViewMat(view);
 		
 
+		//reseteamos las coordenadas del ratón
 		lastX = x;
 		lastY = y;
 	}
@@ -287,8 +312,10 @@ void mousePassMoveFunc(int x, int y)
 {
 	//std::cout << "Pasivo en la posici�n " << x << " " << y << std::endl << std::endl;
 }
+//funcionalidad de la rueda del ratón
 void mouseWheelFunc(int wheel, int dir, int x, int y)
 {
+	//cuando scrolleamos hacia arriba
 	if (dir > 0) {
 		std::cout << "Se ha pulsado la rueda del rat�n hacia arriba ";
 		//Zoom
@@ -298,6 +325,7 @@ void mouseWheelFunc(int wheel, int dir, int x, int y)
 		camaraPos += direccion * zoomSpeed;
 		IGlib::setViewMat(view);
 	}
+	//cuando scrolleamos hacia abajo
 	else {
 		std::cout << "Se ha pulsado la rueda del rat�n hacia abajo ";
 		float zoomSpeed = 0.5f;
@@ -309,6 +337,7 @@ void mouseWheelFunc(int wheel, int dir, int x, int y)
 	std::cout << "en la posici�n " << x << " " << y << std::endl << std::endl;
 }
 
+//método de carga de objetos 3D
 bool carga3D(const std::string& pFile) {
 	Assimp::Importer importer;
 	sc = importer.ReadFile(pFile,

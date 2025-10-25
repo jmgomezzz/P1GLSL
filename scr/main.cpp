@@ -14,7 +14,9 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
-
+//Alto y ancho de pantalla
+int gWhidth = 800;
+int gHeight = 600;
 //Variables globales para camara
 bool leftButtonDown = false;
 float lastX = 0.0f;
@@ -22,7 +24,10 @@ float lastY = 0.0f;
 
 //Vector con los IDs de la beretta
 std::vector<int> gBerettaIds;
-
+//Variables para el zoom
+float gFov = 60.0f;
+const float gFovMin = 20.0f;
+const float gFovMax = 80.0f;
 
 //Idenficadores de los objetos de la escena
 int objId = -1;
@@ -138,6 +143,25 @@ void cargarOriginal()
 void resizeFunc(int width, int height)
 {
 	//Ajusta el aspect ratio al tama�o de la venta
+	//Para evitar división por 0
+	if (height == 0)
+		height = 1;
+	//Se actualizan las variables globales
+	gWhidth = width;
+	gHeight = height;
+
+	//Cálculo del aspect ratio
+	float aspect = (float)width / (float)height;
+
+	glm::mat4 proj = glm::mat4(1.0);
+	//FOV de 60 grados
+	float f = 1.0 / tan(3.141592 / 6.0);
+	float far = 50.0;
+	float near = 0.1;
+	//Matriz de proyecci�n perspectiva
+	proj = glm::perspective(glm::radians(gFov), aspect, near, far);
+	//Se carga la nueva matriz de proyecci�n
+	IGlib::setProjMat(proj);
 }
 
 //modificada para que gire sobre el propio eje Y y haga un pequeño hover hacia arriba y abajo
@@ -166,7 +190,7 @@ void idleFunc()
 
 	//se implementa al modelo de la beretta
 	for (int i = 0; i < gBerettaIds.size(); i++) {
-		glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.5f, 0.0f));
+		glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
 		model = glm::rotate(model, -3.141592f / 2.0f, glm::vec3(0.0f, 0.0f, 1.0f)); //los ejes de giro están cambiados ya que el modelo ha sido girado para que esté apoyado sobre el mango
 		model = glm::rotate(model, angle, glm::vec3(1.0f, 0.0f, 0.0f));
 		model = glm::scale(model, glm::vec3(0.02f));
@@ -232,7 +256,7 @@ void keyboardFunc(unsigned char key, int x, int y)
 			glm::vec3 forward = glm::normalize(camaraCentro - camaraPos);
 			//Escalado para hacerlo mas grande y posicionamiento 
 			for (int i = start; i < objIds.size(); i++) {
-				glm::mat4 model = glm::translate(glm::mat4(1.0f), forward * 3.0f);
+				glm::mat4 model = glm::translate(glm::mat4(1.0f), camaraPos + forward * 10.0f);
 				model = glm::rotate(model, -3.141592f / 12.0f, glm::vec3(0.0f, 1.0f, 0.0f));
 				model = glm::scale(model, glm::vec3(2.0f));
 				IGlib::setModelMat(objIds[i], model);
@@ -317,24 +341,27 @@ void mousePassMoveFunc(int x, int y)
 void mouseWheelFunc(int wheel, int dir, int x, int y)
 {
 	//cuando scrolleamos hacia arriba
+	const float zoomSensitivity = 2.0f;
 	if (dir > 0) {
-		std::cout << "Se ha pulsado la rueda del rat�n hacia arriba ";
-		//Zoom
-		float zoomSpeed = 0.5f;
-		glm::mat4 view = glm::lookAt(camaraPos, camaraCentro, camaraUp);
-		glm::vec3 direccion = glm::normalize(camaraCentro - camaraPos);
-		camaraPos += direccion * zoomSpeed;
-		IGlib::setViewMat(view);
+		gFov -= zoomSensitivity;
+		if (gFov < gFovMin)
+			gFov = gFovMin;
 	}
-	//cuando scrolleamos hacia abajo
 	else {
-		std::cout << "Se ha pulsado la rueda del rat�n hacia abajo ";
-		float zoomSpeed = 0.5f;
-		glm::mat4 view = glm::lookAt(camaraPos, camaraCentro, camaraUp);
-		glm::vec3 direccion = glm::normalize(camaraCentro - camaraPos);
-		camaraPos -= direccion * zoomSpeed;
-		IGlib::setViewMat(view);
+		gFov += zoomSensitivity;
+		if (gFov > gFovMax)
+			gFov = gFovMax;
 	}
+
+	//Cálculo del aspect ratio
+	int w = gWhidth;
+	int h = gHeight;
+	if (h == 0)
+		h = 1;
+	float aspect = (float)w / (float)h;
+	glm::mat4 proj = glm::perspective(glm::radians(gFov), aspect, 0.1f, 50.0f);
+	//Se carga la nueva matriz de proyecci�n
+	IGlib::setProjMat(proj);
 	std::cout << "en la posici�n " << x << " " << y << std::endl << std::endl;
 }
 
